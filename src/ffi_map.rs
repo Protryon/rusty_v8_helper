@@ -211,6 +211,25 @@ impl<'sc, 'c> FFICompat<'sc, 'c> for bool {
     }
 }
 
+impl<'sc, 'c> FFICompat<'sc, 'c> for () {
+    type E = String;
+    fn from_value(
+        _value: v8::Local<'sc, v8::Value>,
+        _scope: &mut impl v8::ToLocal<'sc>,
+        _context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        Ok(())
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        _context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        return Ok(v8::undefined(scope).into());
+    }
+}
+
 impl<'sc, 'c, T: FFICompat<'sc, 'c>> FFICompat<'sc, 'c> for Option<T> {
     type E = T::E;
 
@@ -526,6 +545,11 @@ mod tests {
         Ok(arg)
     }
 
+    #[v8_ffi]
+    fn test_ffi_unit() -> () {
+        TEST_RESPONSE.store(14, Ordering::SeqCst);
+    }
+
     #[test]
     fn exec_tests() {
         let platform = v8::new_default_platform();
@@ -717,5 +741,12 @@ mod tests {
         );
         run_script(scope, context, "test_ffi_result_join('test')");
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 13);
+        global.set(
+            context,
+            make_str(scope, "test_ffi_unit"),
+            load_v8_ffi!(test_ffi_unit, scope, context),
+        );
+        run_script(scope, context, "test_ffi_unit()");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 14);
     }
 }
