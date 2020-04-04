@@ -2,12 +2,16 @@
 name = "rusty_v8_helper"
 version = "1.0.0"
 authors = ["Protryon <max.bruce12@gmail.com>"]
+license = "GPL-3.0-or-later"
 edition = "2018"
+repository = "https://github.com/Protryon/rusty_v8_helper"
+description = "Helper functions for rusty_v8_protryon"
+keywords = [ "rusty_v8", "v8", "ffi" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rusty_v8_helper_derive = { path = "./rusty_v8_helper_derive/", version = "1.0.0" }
+rusty_v8_helper_derive = { version = "1.0.0" }
 rusty_v8_protryon = { version = "0.3.10" }
 libc = "0.2"
 proc-macro-hack = "0.5"
