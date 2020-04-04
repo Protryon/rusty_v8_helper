@@ -1,30 +1,32 @@
 use crate::util::*;
 use rusty_v8 as v8;
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::{Map, Value};
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
-use serde::{ Serialize, de::DeserializeOwned };
-use serde_json::{ Value, Map };
 
-pub trait FFICompat2<'sc, 'c, E: Debug>
+pub trait FFICompat2<'sc, 'c>
 where
     Self: Sized,
 {
+    type E: Debug;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
         _context: v8::Local<'c, v8::Context>,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, Self::E>;
 
     fn to_value(
         self,
         scope: &mut impl v8::ToLocal<'sc>,
         _context: v8::Local<'c, v8::Context>,
-    ) -> Result<v8::Local<'sc, v8::Value>, E>;
+    ) -> Result<v8::Local<'sc, v8::Value>, Self::E>;
 }
 
 impl<'sc, 'c, T: Into<v8::Local<'sc, v8::Value>> + TryFrom<v8::Local<'sc, v8::Value>>>
-    FFICompat2<'sc, 'c, String> for T
+    FFICompat2<'sc, 'c> for T
 {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         _scope: &mut impl v8::ToLocal<'sc>,
@@ -46,24 +48,26 @@ impl<'sc, 'c, T: Into<v8::Local<'sc, v8::Value>> + TryFrom<v8::Local<'sc, v8::Va
     }
 }
 
-pub trait FFICompat<'sc, 'c, E: Debug>
+pub trait FFICompat<'sc, 'c>
 where
     Self: Sized,
 {
+    type E: Debug;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
         _context: v8::Local<'c, v8::Context>,
-    ) -> Result<Self, E>;
+    ) -> Result<Self, Self::E>;
 
     fn to_value(
         self,
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
-    ) -> Result<v8::Local<'sc, v8::Value>, E>;
+    ) -> Result<v8::Local<'sc, v8::Value>, Self::E>;
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for String {
+impl<'sc, 'c> FFICompat<'sc, 'c> for String {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -85,7 +89,8 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for String {
     }
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for f64 {
+impl<'sc, 'c> FFICompat<'sc, 'c> for f64 {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -107,7 +112,8 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for f64 {
     }
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for i64 {
+impl<'sc, 'c> FFICompat<'sc, 'c> for i64 {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -125,7 +131,8 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for i64 {
     }
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for u64 {
+impl<'sc, 'c> FFICompat<'sc, 'c> for u64 {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -143,7 +150,8 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for u64 {
     }
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for i32 {
+impl<'sc, 'c> FFICompat<'sc, 'c> for i32 {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -161,7 +169,8 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for i32 {
     }
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for u32 {
+impl<'sc, 'c> FFICompat<'sc, 'c> for u32 {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -179,7 +188,8 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for u32 {
     }
 }
 
-impl<'sc, 'c> FFICompat<'sc, 'c, String> for bool {
+impl<'sc, 'c> FFICompat<'sc, 'c> for bool {
+    type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         _scope: &mut impl v8::ToLocal<'sc>,
@@ -201,12 +211,14 @@ impl<'sc, 'c> FFICompat<'sc, 'c, String> for bool {
     }
 }
 
-impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Option<T> {
+impl<'sc, 'c, T: FFICompat<'sc, 'c>> FFICompat<'sc, 'c> for Option<T> {
+    type E = T::E;
+
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
-    ) -> Result<Self, E> {
+    ) -> Result<Self, Self::E> {
         Ok(T::from_value(value, scope, context).ok())
     }
 
@@ -214,7 +226,7 @@ impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Opti
         self,
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
-    ) -> Result<v8::Local<'sc, v8::Value>, E> {
+    ) -> Result<v8::Local<'sc, v8::Value>, Self::E> {
         return Ok(self
             .map(|x| x.to_value(scope, context).ok())
             .flatten()
@@ -222,12 +234,14 @@ impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Opti
     }
 }
 
-impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E> + 'static> FFICompat<'sc, 'c, E> for Result<T, E> {
+impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c> + 'static> FFICompat<'sc, 'c> for Result<T, E> {
+    type E = String;
+
     fn from_value(
         _value: v8::Local<'sc, v8::Value>,
         _scope: &mut impl v8::ToLocal<'sc>,
         _context: v8::Local<'c, v8::Context>,
-    ) -> Result<Self, E> {
+    ) -> Result<Self, Self::E> {
         unimplemented!();
     }
 
@@ -235,20 +249,22 @@ impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E> + 'static> FFICompat<'sc, 'c, E
         self,
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
-    ) -> Result<v8::Local<'sc, v8::Value>, E> {
+    ) -> Result<v8::Local<'sc, v8::Value>, Self::E> {
         match self {
-            Ok(v) => v.to_value(scope, context),
-            Err(e) => Err(e),
+            Ok(v) => v.to_value(scope, context).map_err(|e| format!("{:?}", e)),
+            Err(e) => Err(format!("{:?}", e)),
         }
     }
 }
 
-impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Vec<T> {
+impl<'sc, 'c, T: FFICompat<'sc, 'c>> FFICompat<'sc, 'c> for Vec<T> {
+    type E = T::E;
+
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
-    ) -> Result<Self, E> {
+    ) -> Result<Self, Self::E> {
         let value: Option<v8::Local<'sc, v8::Array>> = value.try_into().ok();
         let value = match value {
             Some(value) => value,
@@ -270,8 +286,8 @@ impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Vec<
         self,
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
-    ) -> Result<v8::Local<'sc, v8::Value>, E> {
-        let localled: Result<Vec<v8::Local<'sc, v8::Value>>, E> = self
+    ) -> Result<v8::Local<'sc, v8::Value>, Self::E> {
+        let localled: Result<Vec<v8::Local<'sc, v8::Value>>, Self::E> = self
             .into_iter()
             .map(|x| x.to_value(scope, context))
             .collect();
@@ -280,9 +296,11 @@ impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Vec<
     }
 }
 
-fn js_value_to_serde<'sc, 'c>(value: v8::Local<'sc, v8::Value>,
+fn js_value_to_serde<'sc, 'c>(
+    value: v8::Local<'sc, v8::Value>,
     scope: &mut impl v8::ToLocal<'sc>,
-    context: v8::Local<'c, v8::Context>) -> Result<Value, String> {
+    context: v8::Local<'c, v8::Context>,
+) -> Result<Value, String> {
     let nvalue: Result<v8::Local<v8::Array>, _> = value.try_into();
     if let Ok(nvalue) = nvalue {
         let mut values = vec![];
@@ -292,11 +310,13 @@ fn js_value_to_serde<'sc, 'c>(value: v8::Local<'sc, v8::Value>,
                 .unwrap_or_else(|| v8::undefined(scope).into());
             values.push(js_value_to_serde(local, scope, context)?);
         }
-        return Ok(Value::Array(values))
+        return Ok(Value::Array(values));
     }
     let nvalue: Result<v8::Local<v8::Object>, _> = value.try_into();
     if let Ok(nvalue) = nvalue {
-        let names = nvalue.get_own_property_names(scope, context).unwrap_or(vec![]);
+        let names = nvalue
+            .get_own_property_names(scope, context)
+            .unwrap_or(vec![]);
         let mut values: Map<String, Value> = Map::new();
         for name in names {
             let lname = make_str(scope, &name);
@@ -313,7 +333,9 @@ fn js_value_to_serde<'sc, 'c>(value: v8::Local<'sc, v8::Value>,
     }
     let nvalue: Result<v8::Local<v8::Number>, _> = value.try_into();
     if let Ok(nvalue) = nvalue {
-        return Ok(Value::Number(serde_json::Number::from_f64(nvalue.number_value(scope).unwrap_or(0.0)).unwrap()));
+        return Ok(Value::Number(
+            serde_json::Number::from_f64(nvalue.number_value(scope).unwrap_or(0.0)).unwrap(),
+        ));
     }
     let nvalue: Result<v8::Local<v8::Boolean>, _> = value.try_into();
     if let Ok(nvalue) = nvalue {
@@ -325,9 +347,11 @@ fn js_value_to_serde<'sc, 'c>(value: v8::Local<'sc, v8::Value>,
     return Err("unknown js type for jsonification".to_string());
 }
 
-fn serde_to_js_value<'sc, 'c>(value: Value,
+fn serde_to_js_value<'sc, 'c>(
+    value: Value,
     scope: &mut impl v8::ToLocal<'sc>,
-    context: v8::Local<'c, v8::Context>) -> Result<v8::Local<'sc, v8::Value>, String> {
+    context: v8::Local<'c, v8::Context>,
+) -> Result<v8::Local<'sc, v8::Value>, String> {
     match value {
         Value::Array(array) => {
             let localled: Result<Vec<v8::Local<'sc, v8::Value>>, String> = array
@@ -337,7 +361,7 @@ fn serde_to_js_value<'sc, 'c>(value: Value,
             let localled = localled?;
 
             Ok(v8::Array::new_with_elements(scope, &localled[..]).into())
-        },
+        }
         Value::Object(obj) => {
             let js_obj = v8::Object::new(scope);
             for (key, value) in obj.into_iter() {
@@ -345,26 +369,20 @@ fn serde_to_js_value<'sc, 'c>(value: Value,
                 js_obj.set(context, key, serde_to_js_value(value, scope, context)?);
             }
             Ok(js_obj.into())
-        },
-        Value::String(string) => {
-            Ok(make_str(scope, &string))
-        },
-        Value::Number(number) => {
-            Ok(make_num(scope, number.as_f64().unwrap_or(0.0)))
-        },
-        Value::Bool(b) => {
-            Ok(make_bool(scope, b))
-        },
-        Value::Null => {
-            Ok(v8::null(scope).into())
-        },
+        }
+        Value::String(string) => Ok(make_str(scope, &string)),
+        Value::Number(number) => Ok(make_num(scope, number.as_f64().unwrap_or(0.0))),
+        Value::Bool(b) => Ok(make_bool(scope, b)),
+        Value::Null => Ok(v8::null(scope).into()),
     }
 }
 
 /// marker trait for json mapping
 pub trait FFIObject {}
 
-impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject + 'static> FFICompat<'sc, 'c, String> for T {
+impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject + 'static> FFICompat<'sc, 'c> for T {
+    type E = String;
+
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
         scope: &mut impl v8::ToLocal<'sc>,
@@ -389,9 +407,9 @@ mod tests {
     use super::*;
     use rusty_v8 as v8;
     use rusty_v8_helper_derive::v8_ffi;
+    use serde::Deserialize;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
-    use serde::Deserialize;
 
     struct TestWrapper(String);
 
@@ -491,13 +509,21 @@ mod tests {
     fn test_ffi_obj(arg: TestObj) -> TestObj {
         if arg.value == "test1" {
             TEST_RESPONSE.store(11, Ordering::SeqCst);
-            return TestObj { value: "test2".to_string() };
+            return TestObj {
+                value: "test2".to_string(),
+            };
         } else if arg.value == "test2" {
             TEST_RESPONSE.store(12, Ordering::SeqCst);
             return arg;
         } else {
             return arg;
         }
+    }
+
+    #[v8_ffi]
+    fn test_ffi_result_join(arg: String) -> Result<String, Box<dyn std::error::Error>> {
+        TEST_RESPONSE.store(13, Ordering::SeqCst);
+        Ok(arg)
     }
 
     #[test]
@@ -676,11 +702,7 @@ mod tests {
             make_str(scope, "test_ffi_obj"),
             load_v8_ffi!(test_ffi_obj, scope, context),
         );
-        run_script(
-            scope,
-            context,
-            "test_ffi_obj({ value: 'test1' })",
-        );
+        run_script(scope, context, "test_ffi_obj({ value: 'test1' })");
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 11);
         run_script(
             scope,
@@ -688,5 +710,12 @@ mod tests {
             "test_ffi_obj(test_ffi_obj({ value: 'test1' }))",
         );
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 12);
+        global.set(
+            context,
+            make_str(scope, "test_ffi_result_join"),
+            load_v8_ffi!(test_ffi_result_join, scope, context),
+        );
+        run_script(scope, context, "test_ffi_result_join('test')");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 13);
     }
 }
