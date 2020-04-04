@@ -1,6 +1,6 @@
 [package]
 name = "rusty_v8_helper_derive"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Protryon <max.bruce12@gmail.com>"]
 license = "GPL-3.0-or-later"
 edition = "2018"
