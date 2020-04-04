@@ -2,6 +2,8 @@ use crate::util::*;
 use rusty_v8 as v8;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
+use serde::{ Serialize, de::DeserializeOwned };
+use serde_json::{ Value, Map };
 
 pub trait FFICompat2<'sc, 'c, E: Debug>
 where
@@ -278,6 +280,110 @@ impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c, E>> FFICompat<'sc, 'c, E> for Vec<
     }
 }
 
+fn js_value_to_serde<'sc, 'c>(value: v8::Local<'sc, v8::Value>,
+    scope: &mut impl v8::ToLocal<'sc>,
+    context: v8::Local<'c, v8::Context>) -> Result<Value, String> {
+    let nvalue: Result<v8::Local<v8::Array>, _> = value.try_into();
+    if let Ok(nvalue) = nvalue {
+        let mut values = vec![];
+        for i in 0..nvalue.length() {
+            let local = nvalue
+                .get_index(scope, context, i)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            values.push(js_value_to_serde(local, scope, context)?);
+        }
+        return Ok(Value::Array(values))
+    }
+    let nvalue: Result<v8::Local<v8::Object>, _> = value.try_into();
+    if let Ok(nvalue) = nvalue {
+        let names = nvalue.get_own_property_names(scope, context).unwrap_or(vec![]);
+        let mut values: Map<String, Value> = Map::new();
+        for name in names {
+            let lname = make_str(scope, &name);
+            let local = nvalue
+                .get(scope, context, lname)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            values.insert(name, js_value_to_serde(local, scope, context)?);
+        }
+        return Ok(Value::Object(values));
+    }
+    let nvalue: Result<v8::Local<v8::String>, _> = value.try_into();
+    if let Ok(nvalue) = nvalue {
+        return Ok(Value::String(nvalue.to_rust_string_lossy(scope)));
+    }
+    let nvalue: Result<v8::Local<v8::Number>, _> = value.try_into();
+    if let Ok(nvalue) = nvalue {
+        return Ok(Value::Number(serde_json::Number::from_f64(nvalue.number_value(scope).unwrap_or(0.0)).unwrap()));
+    }
+    let nvalue: Result<v8::Local<v8::Boolean>, _> = value.try_into();
+    if let Ok(nvalue) = nvalue {
+        return Ok(Value::Bool(nvalue.is_true()));
+    }
+    if value.is_undefined() || value.is_null() {
+        return Ok(Value::Null);
+    }
+    return Err("unknown js type for jsonification".to_string());
+}
+
+fn serde_to_js_value<'sc, 'c>(value: Value,
+    scope: &mut impl v8::ToLocal<'sc>,
+    context: v8::Local<'c, v8::Context>) -> Result<v8::Local<'sc, v8::Value>, String> {
+    match value {
+        Value::Array(array) => {
+            let localled: Result<Vec<v8::Local<'sc, v8::Value>>, String> = array
+                .into_iter()
+                .map(|x| serde_to_js_value(x, scope, context))
+                .collect();
+            let localled = localled?;
+
+            Ok(v8::Array::new_with_elements(scope, &localled[..]).into())
+        },
+        Value::Object(obj) => {
+            let js_obj = v8::Object::new(scope);
+            for (key, value) in obj.into_iter() {
+                let key = make_str(scope, &key);
+                js_obj.set(context, key, serde_to_js_value(value, scope, context)?);
+            }
+            Ok(js_obj.into())
+        },
+        Value::String(string) => {
+            Ok(make_str(scope, &string))
+        },
+        Value::Number(number) => {
+            Ok(make_num(scope, number.as_f64().unwrap_or(0.0)))
+        },
+        Value::Bool(b) => {
+            Ok(make_bool(scope, b))
+        },
+        Value::Null => {
+            Ok(v8::null(scope).into())
+        },
+    }
+}
+
+/// marker trait for json mapping
+pub trait FFIObject {}
+
+impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject + 'static> FFICompat<'sc, 'c, String> for T {
+    fn from_value(
+        value: v8::Local<'sc, v8::Value>,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        let value = js_value_to_serde(value, scope, context)?;
+        serde_json::from_value(value).map_err(|e| format!("{:?}", e))
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        let value = serde_json::to_value(self).map_err(|e| format!("{:?}", e))?;
+        serde_to_js_value(value, scope, context)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,8 +391,16 @@ mod tests {
     use rusty_v8_helper_derive::v8_ffi;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
+    use serde::Deserialize;
 
     struct TestWrapper(String);
+
+    #[derive(Serialize, Deserialize)]
+    struct TestObj {
+        value: String,
+    }
+
+    impl FFIObject for TestObj {}
 
     static TEST_RESPONSE: AtomicU64 = AtomicU64::new(0);
 
@@ -370,6 +484,19 @@ mod tests {
             this.0 = "test3".to_string();
         } else if this.0 == "test3" {
             this.0 = "test4".to_string();
+        }
+    }
+
+    #[v8_ffi]
+    fn test_ffi_obj(arg: TestObj) -> TestObj {
+        if arg.value == "test1" {
+            TEST_RESPONSE.store(11, Ordering::SeqCst);
+            return TestObj { value: "test2".to_string() };
+        } else if arg.value == "test2" {
+            TEST_RESPONSE.store(12, Ordering::SeqCst);
+            return arg;
+        } else {
+            return arg;
         }
     }
 
@@ -544,5 +671,22 @@ mod tests {
                 .0,
             "test4"
         );
+        global.set(
+            context,
+            make_str(scope, "test_ffi_obj"),
+            load_v8_ffi!(test_ffi_obj, scope, context),
+        );
+        run_script(
+            scope,
+            context,
+            "test_ffi_obj({ value: 'test1' })",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 11);
+        run_script(
+            scope,
+            context,
+            "test_ffi_obj(test_ffi_obj({ value: 'test1' }))",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 12);
     }
 }

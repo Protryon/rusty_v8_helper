@@ -225,7 +225,7 @@ fn impl_v8_ffi(ast: &ItemFn) -> TokenStream {
                 };
                 preludes.push(quote! {
                     let mut #name = __v8_ffi_args.get(#i);
-                    let #name: ::rusty_v8::Local<'sc, ::rusty_v8::Value> = unsafe { std::mem::transmute(#name) };
+                    let #name: ::rusty_v8_protryon::Local<'sc, ::rusty_v8_protryon::Value> = unsafe { std::mem::transmute(#name) };
                     let #name = #ty(#name, __v8_ffi_scope, __v8_ffi_context);
                     if let Err(e) = #name {
                         ::rusty_v8_helper::util::throw_exception(__v8_ffi_scope, &format!("{:?}", e));
@@ -267,15 +267,15 @@ fn impl_v8_ffi(ast: &ItemFn) -> TokenStream {
     let gen = quote! {
         #ast
 
-        fn #ffi_internal_ident<'sc, 'a>(mut __v8_ffi_scope: ::rusty_v8::FunctionCallbackScope<'sc>, __v8_ffi_args: ::rusty_v8::FunctionCallbackArguments<'a>, mut __v8_ffi_rv: ::rusty_v8::ReturnValue) {
+        fn #ffi_internal_ident<'sc, 'a>(mut __v8_ffi_scope: ::rusty_v8_protryon::FunctionCallbackScope<'sc>, __v8_ffi_args: ::rusty_v8_protryon::FunctionCallbackArguments<'a>, mut __v8_ffi_rv: ::rusty_v8_protryon::ReturnValue) {
             let __v8_ffi_context = __v8_ffi_scope.get_current_context().unwrap();
             #preludes
             let __returned = #original_ident(#arg_names);
             #return_postlude
         }
 
-        #vis fn #ffi_ident<'sc>(__v8_ffi_scope: &mut impl ::rusty_v8::ToLocal<'sc>, __v8_ffi_context: ::rusty_v8::Local<'sc, ::rusty_v8::Context>) -> ::rusty_v8::Local<'sc, ::rusty_v8::Function> {
-            ::rusty_v8::Function::new(
+        #vis fn #ffi_ident<'sc>(__v8_ffi_scope: &mut impl ::rusty_v8_protryon::ToLocal<'sc>, __v8_ffi_context: ::rusty_v8_protryon::Local<'sc, ::rusty_v8_protryon::Context>) -> ::rusty_v8_protryon::Local<'sc, ::rusty_v8_protryon::Function> {
+            ::rusty_v8_protryon::Function::new(
                 __v8_ffi_scope,
                 __v8_ffi_context,
                 #ffi_internal_ident,

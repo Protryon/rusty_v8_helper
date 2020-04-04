@@ -11,4 +11,6 @@ pub use object_wrap::ObjectWrap;
 
 mod ffi_map;
 pub use ffi_map::FFICompat;
+pub use ffi_map::FFICompat2;
+pub use ffi_map::FFIObject;
 pub mod util;
