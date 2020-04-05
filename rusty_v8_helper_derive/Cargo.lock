@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "rusty_v8_helper_derive"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "proc-macro-hack",
  "proc-macro2",

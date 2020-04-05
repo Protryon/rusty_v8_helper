@@ -117,9 +117,7 @@ dependencies = [
 
 [[package]]
 name = "rusty_v8_helper_derive"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8763c1de0bd3331e8d9524c74bfbf0862cc64234ed300d092d7e883378c22611"
+version = "1.0.2"
 dependencies = [
  "proc-macro-hack",
  "proc-macro2",

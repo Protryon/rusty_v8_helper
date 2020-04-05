@@ -421,7 +421,45 @@ impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject + 'static> FFICompat<'
     }
 }
 
-#[cfg(test)]
+impl<'sc, 'c, A1: FFICompat<'sc, 'c>, A2: FFICompat<'sc, 'c>> FFICompat<'sc, 'c> for (A1, A2) {
+    type E = String;
+
+    fn from_value(
+        value: v8::Local<'sc, v8::Value>,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        let value: Result<v8::Local<v8::Array>, _> = value.try_into();
+        if let Ok(value) = value {
+            if value.length() != 2 {
+                return Err("expected 2-length array for tuple ffi".to_string());
+            }
+            let v1 = value
+                .get_index(scope, context, 0)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v2 = value
+                .get_index(scope, context, 1)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v1 = A1::from_value(v1, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v2 = A2::from_value(v2, scope, context).map_err(|e| format!("{:?}", e))?;
+            return Ok((v1, v2));
+        } else {
+            return Err("expected array for tuple ffi".to_string());
+        }
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        let v1 = self.0.to_value(scope, context).map_err(|e| format!("{:?}", e))?;
+        let v2 = self.1.to_value(scope, context).map_err(|e| format!("{:?}", e))?;
+        return Ok(v8::Array::new_with_elements(scope, &[v1, v2]).into())
+    }
+}
+
+//#[cfg(test)]
 mod tests {
     use super::*;
     use rusty_v8 as v8;
@@ -548,6 +586,18 @@ mod tests {
     #[v8_ffi]
     fn test_ffi_unit() -> () {
         TEST_RESPONSE.store(14, Ordering::SeqCst);
+    }
+
+    #[v8_ffi]
+    fn test_ffi_tuple1(arg: (String, u32)) -> (u32, String) {
+        TEST_RESPONSE.store(15, Ordering::SeqCst);
+        (arg.1, arg.0)
+    }
+
+    #[v8_ffi]
+    fn test_ffi_tuple2(arg: (u32, String)) -> (String, u32) {
+        TEST_RESPONSE.store(16, Ordering::SeqCst);
+        (arg.1, arg.0)
     }
 
     #[test]
@@ -748,5 +798,19 @@ mod tests {
         );
         run_script(scope, context, "test_ffi_unit()");
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 14);
+        global.set(
+            context,
+            make_str(scope, "test_ffi_tuple1"),
+            load_v8_ffi!(test_ffi_tuple1, scope, context),
+        );
+        global.set(
+            context,
+            make_str(scope, "test_ffi_tuple2"),
+            load_v8_ffi!(test_ffi_tuple2, scope, context),
+        );
+        run_script(scope, context, "test_ffi_tuple1(['test', 10])");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 15);
+        run_script(scope, context, "test_ffi_tuple2(test_ffi_tuple1(['test', 10]))");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 16);
     }
 }

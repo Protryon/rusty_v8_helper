@@ -221,7 +221,7 @@ fn impl_v8_ffi(ast: &ItemFn) -> TokenStream {
                         let ty = Type::Path(TypePath { qself: qself.clone(), path });
                         quote! { #ty }
                     },
-                    _ => quote! { (#ty)::#from_value_ident },
+                    _ => quote! { <#ty>::#from_value_ident },
                 };
                 preludes.push(quote! {
                     let mut #name = __v8_ffi_args.get(#i);
