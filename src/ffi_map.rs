@@ -453,13 +453,218 @@ impl<'sc, 'c, A1: FFICompat<'sc, 'c>, A2: FFICompat<'sc, 'c>> FFICompat<'sc, 'c>
         scope: &mut impl v8::ToLocal<'sc>,
         context: v8::Local<'c, v8::Context>,
     ) -> Result<v8::Local<'sc, v8::Value>, String> {
-        let v1 = self.0.to_value(scope, context).map_err(|e| format!("{:?}", e))?;
-        let v2 = self.1.to_value(scope, context).map_err(|e| format!("{:?}", e))?;
-        return Ok(v8::Array::new_with_elements(scope, &[v1, v2]).into())
+        let v1 = self
+            .0
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v2 = self
+            .1
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        return Ok(v8::Array::new_with_elements(scope, &[v1, v2]).into());
     }
 }
 
-//#[cfg(test)]
+impl<'sc, 'c, A1: FFICompat<'sc, 'c>, A2: FFICompat<'sc, 'c>, A3: FFICompat<'sc, 'c>>
+    FFICompat<'sc, 'c> for (A1, A2, A3)
+{
+    type E = String;
+
+    fn from_value(
+        value: v8::Local<'sc, v8::Value>,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        let value: Result<v8::Local<v8::Array>, _> = value.try_into();
+        if let Ok(value) = value {
+            if value.length() != 3 {
+                return Err("expected 3-length array for tuple ffi".to_string());
+            }
+            let v1 = value
+                .get_index(scope, context, 0)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v2 = value
+                .get_index(scope, context, 1)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v3 = value
+                .get_index(scope, context, 2)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v1 = A1::from_value(v1, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v2 = A2::from_value(v2, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v3 = A3::from_value(v3, scope, context).map_err(|e| format!("{:?}", e))?;
+            return Ok((v1, v2, v3));
+        } else {
+            return Err("expected array for tuple ffi".to_string());
+        }
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        let v1 = self
+            .0
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v2 = self
+            .1
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v3 = self
+            .2
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        return Ok(v8::Array::new_with_elements(scope, &[v1, v2, v3]).into());
+    }
+}
+
+impl<
+        'sc,
+        'c,
+        A1: FFICompat<'sc, 'c>,
+        A2: FFICompat<'sc, 'c>,
+        A3: FFICompat<'sc, 'c>,
+        A4: FFICompat<'sc, 'c>,
+    > FFICompat<'sc, 'c> for (A1, A2, A3, A4)
+{
+    type E = String;
+
+    fn from_value(
+        value: v8::Local<'sc, v8::Value>,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        let value: Result<v8::Local<v8::Array>, _> = value.try_into();
+        if let Ok(value) = value {
+            if value.length() != 4 {
+                return Err("expected 4-length array for tuple ffi".to_string());
+            }
+            let v1 = value
+                .get_index(scope, context, 0)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v2 = value
+                .get_index(scope, context, 1)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v3 = value
+                .get_index(scope, context, 2)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v4 = value
+                .get_index(scope, context, 3)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v1 = A1::from_value(v1, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v2 = A2::from_value(v2, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v3 = A3::from_value(v3, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v4 = A4::from_value(v4, scope, context).map_err(|e| format!("{:?}", e))?;
+            return Ok((v1, v2, v3, v4));
+        } else {
+            return Err("expected array for tuple ffi".to_string());
+        }
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        let v1 = self
+            .0
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v2 = self
+            .1
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v3 = self
+            .2
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v4 = self
+            .3
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        return Ok(v8::Array::new_with_elements(scope, &[v1, v2, v3, v4]).into());
+    }
+}
+
+impl<
+        'sc,
+        'c,
+        A1: FFICompat<'sc, 'c>,
+        A2: FFICompat<'sc, 'c>,
+        A3: FFICompat<'sc, 'c>,
+        A4: FFICompat<'sc, 'c>,
+        A5: FFICompat<'sc, 'c>,
+    > FFICompat<'sc, 'c> for (A1, A2, A3, A4, A5)
+{
+    type E = String;
+
+    fn from_value(
+        value: v8::Local<'sc, v8::Value>,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        let value: Result<v8::Local<v8::Array>, _> = value.try_into();
+        if let Ok(value) = value {
+            if value.length() != 5 {
+                return Err("expected 5-length array for tuple ffi".to_string());
+            }
+            let v1 = value
+                .get_index(scope, context, 0)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v2 = value
+                .get_index(scope, context, 1)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v3 = value
+                .get_index(scope, context, 2)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v4 = value
+                .get_index(scope, context, 3)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v5 = value
+                .get_index(scope, context, 4)
+                .unwrap_or_else(|| v8::undefined(scope).into());
+            let v1 = A1::from_value(v1, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v2 = A2::from_value(v2, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v3 = A3::from_value(v3, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v4 = A4::from_value(v4, scope, context).map_err(|e| format!("{:?}", e))?;
+            let v5 = A5::from_value(v5, scope, context).map_err(|e| format!("{:?}", e))?;
+            return Ok((v1, v2, v3, v4, v5));
+        } else {
+            return Err("expected array for tuple ffi".to_string());
+        }
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        let v1 = self
+            .0
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v2 = self
+            .1
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v3 = self
+            .2
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v4 = self
+            .3
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        let v5 = self
+            .4
+            .to_value(scope, context)
+            .map_err(|e| format!("{:?}", e))?;
+        return Ok(v8::Array::new_with_elements(scope, &[v1, v2, v3, v4, v5]).into());
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use rusty_v8 as v8;
@@ -589,15 +794,35 @@ mod tests {
     }
 
     #[v8_ffi]
-    fn test_ffi_tuple1(arg: (String, u32)) -> (u32, String) {
+    fn test_ffi_tuple2_1(arg: (String, u32)) -> (u32, String) {
         TEST_RESPONSE.store(15, Ordering::SeqCst);
         (arg.1, arg.0)
     }
 
     #[v8_ffi]
-    fn test_ffi_tuple2(arg: (u32, String)) -> (String, u32) {
+    fn test_ffi_tuple2_2(arg: (u32, String)) -> (String, u32) {
         TEST_RESPONSE.store(16, Ordering::SeqCst);
         (arg.1, arg.0)
+    }
+
+    #[v8_ffi]
+    fn test_ffi_tuple3(arg: (String, u32, String)) -> (String, u32, String) {
+        TEST_RESPONSE.store(17, Ordering::SeqCst);
+        (arg.0, arg.1, arg.2)
+    }
+
+    #[v8_ffi]
+    fn test_ffi_tuple4(arg: (String, u32, String, u32)) -> (String, u32, String, u32) {
+        TEST_RESPONSE.store(18, Ordering::SeqCst);
+        (arg.0, arg.1, arg.2, arg.3)
+    }
+
+    #[v8_ffi]
+    fn test_ffi_tuple5(
+        arg: (String, u32, String, u32, String),
+    ) -> (String, u32, String, u32, String) {
+        TEST_RESPONSE.store(19, Ordering::SeqCst);
+        (arg.0, arg.1, arg.2, arg.3, arg.4)
     }
 
     #[test]
@@ -800,17 +1025,46 @@ mod tests {
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 14);
         global.set(
             context,
-            make_str(scope, "test_ffi_tuple1"),
-            load_v8_ffi!(test_ffi_tuple1, scope, context),
+            make_str(scope, "test_ffi_tuple2_1"),
+            load_v8_ffi!(test_ffi_tuple2_1, scope, context),
         );
         global.set(
             context,
-            make_str(scope, "test_ffi_tuple2"),
-            load_v8_ffi!(test_ffi_tuple2, scope, context),
+            make_str(scope, "test_ffi_tuple2_2"),
+            load_v8_ffi!(test_ffi_tuple2_2, scope, context),
         );
-        run_script(scope, context, "test_ffi_tuple1(['test', 10])");
+        run_script(scope, context, "test_ffi_tuple2_1(['test', 10])");
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 15);
-        run_script(scope, context, "test_ffi_tuple2(test_ffi_tuple1(['test', 10]))");
+        run_script(
+            scope,
+            context,
+            "test_ffi_tuple2_2(test_ffi_tuple2_1(['test', 10]))",
+        );
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 16);
+        global.set(
+            context,
+            make_str(scope, "test_ffi_tuple3"),
+            load_v8_ffi!(test_ffi_tuple3, scope, context),
+        );
+        run_script(scope, context, "test_ffi_tuple3(['test', 10, 'test2'])");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 17);
+        global.set(
+            context,
+            make_str(scope, "test_ffi_tuple4"),
+            load_v8_ffi!(test_ffi_tuple4, scope, context),
+        );
+        run_script(scope, context, "test_ffi_tuple4(['test', 10, 'test2', 20])");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 18);
+        global.set(
+            context,
+            make_str(scope, "test_ffi_tuple5"),
+            load_v8_ffi!(test_ffi_tuple5, scope, context),
+        );
+        run_script(
+            scope,
+            context,
+            "test_ffi_tuple5(['test', 10, 'test2', 20, 'test3'])",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 19);
     }
 }
