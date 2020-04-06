@@ -118,8 +118,6 @@ dependencies = [
 [[package]]
 name = "rusty_v8_helper_derive"
 version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d7c2897d1ec2690ea296fb276fd0374a4a51f63be8276177749e4fd9a7131af"
 dependencies = [
  "proc-macro-hack",
  "proc-macro2",
@@ -129,9 +127,9 @@ dependencies = [
 
 [[package]]
 name = "rusty_v8_protryon"
-version = "3.10.1"
+version = "3.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dba80814e0015cf6c8a75409abe2bc150c3d07020359f4dc3398d8f2253b7d36"
+checksum = "cbf491a7ef9043d1f355fdeae3cdb8e904a2257114aa84b748939bce5a2da2d4"
 dependencies = [
  "bitflags",
  "cargo_gn",
@@ -168,9 +166,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.50"
+version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78a7a12c167809363ec3bd7329fc0a3369056996de43c4b37ef3cd54a6ce4867"
+checksum = "da07b57ee2623368351e9a0488bb0b261322a15a6e0ae53e243cbdc0f4208da9"
 dependencies = [
  "itoa",
  "ryu",
