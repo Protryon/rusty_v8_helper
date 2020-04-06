@@ -2,7 +2,7 @@ use crate::util::*;
 use rusty_v8 as v8;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{Map, Value};
-use std::convert::{TryFrom, TryInto};
+use std::convert::{TryInto};
 use std::fmt::Debug;
 
 pub trait FFICompat<'sc, 'c>
@@ -803,72 +803,17 @@ mod tests {
         (arg.0, arg.1, arg.2, arg.3, arg.4)
     }
 
-    //#[v8_ffi(scoped)]
-    fn test_ffi_scoped<'sc, 'c>(scope: &mut impl v8::ToLocal<'sc>, context: v8::Local<'c, v8::Context>, arg: String) -> Result<String, String> {
+    #[v8_ffi(scoped)]
+    fn test_ffi_scoped<'sc, 'c>(scope: &mut impl v8::ToLocal<'sc>, _context: v8::Local<'c, v8::Context>, arg: String) -> v8::Local<'sc, v8::Value> {
         if arg == "test1" {
             TEST_RESPONSE.store(20, Ordering::SeqCst);
-            Ok("test2".to_string())
+            make_str(scope, "test2")
         } else if arg == "test2" {
             TEST_RESPONSE.store(21, Ordering::SeqCst);
-            Ok("test3".to_string())
-        } else if arg == "test3" {
-            Err("test4".to_string())
+            make_str(scope, "test3")
         } else {
-            Ok("what?".to_string())
+            v8::undefined(scope).into()
         }
-    }
-/*    fn test_ffi_scoped<'sc, 'c>(scope: &mut impl v8::ToLocal<'sc>, context: v8::Local<'c, v8::Context>, arg: String) -> Result<v8::Local<'sc, v8::Value>, String> {
-        if arg == "test1" {
-            TEST_RESPONSE.store(20, Ordering::SeqCst);
-            Ok(make_str(scope, "test2"))
-        } else if arg == "test2" {
-            TEST_RESPONSE.store(21, Ordering::SeqCst);
-            Ok(make_str(scope, "test3"))
-        } else if arg == "test3" {
-            Err("test4".to_string())
-        } else {
-            Ok(v8::undefined(scope).into())
-        }
-    }
-
-    */
-
-    fn __v8_ffi_internal_test_ffi_scoped<'sc>(
-        mut __v8_ffi_scope: ::rusty_v8_protryon::FunctionCallbackScope<'sc>,
-        __v8_ffi_args: ::rusty_v8_protryon::FunctionCallbackArguments<'sc>,
-        mut __v8_ffi_rv: ::rusty_v8_protryon::ReturnValue<'sc>,
-    ) {
-        let __v8_ffi_context = __v8_ffi_scope.get_current_context().unwrap();
-        let mut arg = __v8_ffi_args.get(0i32);
-        let arg = String::from_value(arg, __v8_ffi_scope, __v8_ffi_context);
-        if let Err(e) = arg {
-            return;
-        }
-        let arg = arg.unwrap();
-        let __returned = test_ffi_scoped(__v8_ffi_scope, __v8_ffi_context, arg);
-        let __v8_ffi_value = __returned.to_value(__v8_ffi_scope, __v8_ffi_context);
-        match __v8_ffi_value {
-            Ok(__v8_ffi_value) => __v8_ffi_rv.set(__v8_ffi_value),
-            Err(e) => {
-                return;
-            }
-        }
-    }
-    fn __v8_ffi_test_ffi_scoped<'sc, 'c>(
-        __v8_ffi_scope: &mut impl ::rusty_v8_protryon::ToLocal<'sc>,
-        __v8_ffi_context: ::rusty_v8_protryon::Local<'c, ::rusty_v8_protryon::Context>,
-    ) -> ::rusty_v8_protryon::Local<'sc, ::rusty_v8_protryon::Function> {
-        ::rusty_v8_protryon::Function::new(
-            __v8_ffi_scope,
-            __v8_ffi_context,
-            __v8_ffi_internal_test_ffi_scoped,
-        )
-        .unwrap()
-    }
-
-    #[v8_ffi]
-    fn test_ffi_scoped_check() {
-        TEST_RESPONSE.store(23, Ordering::SeqCst);
     }
 
     #[test]
@@ -1112,5 +1057,15 @@ mod tests {
             "test_ffi_tuple5(['test', 10, 'test2', 20, 'test3'])",
         );
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 19);
+
+        global.set(
+            context,
+            make_str(scope, "test_ffi_scoped"),
+            load_v8_ffi!(test_ffi_scoped, scope, context),
+        );
+        run_script(scope, context, "test_ffi_scoped('test1')");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 20);
+        run_script(scope, context, "test_ffi_scoped(test_ffi_scoped('test1'))");
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 21);
     }
 }
