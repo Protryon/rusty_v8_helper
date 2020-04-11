@@ -245,7 +245,12 @@ fn impl_v8_ffi(scoped: bool, ast: &ItemFn) -> TokenStream {
                     return;
                 }
                 let #name = #name.unwrap();
-                let mut #name = #name.lock().unwrap();
+                let #name = #name.try_lock();
+                if #name.is_err() {
+                    throw_exception(__v8_ffi_scope, "deadlock in ffi call");
+                    return;
+                }
+                let mut #name = #name.unwrap();
                 let mut #name = &mut #name;
             });
         } else {

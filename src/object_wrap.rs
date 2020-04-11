@@ -92,9 +92,21 @@ impl<T: Any + 'static> ObjectWrap<T> {
     /// has exactly 1 allocated internal fields through
     /// `ObjectTemplate::set_internal_field_count`, and an arbitrary
     /// `T` to tag with the Object.
-    pub fn new(scope: &mut impl InIsolate, mut object: Local<Object>, wrap: T) -> ObjectWrap<T> {
+    pub fn new(scope: &mut impl InIsolate, object: Local<Object>, wrap: T) -> ObjectWrap<T> {
+        ObjectWrap::new_rc(scope, object, Rc::new(wrap))
+    }
+
+    /// Create a new `ObjectWrap` from a given scope, an `Object` that
+    /// has exactly 1 allocated internal fields through
+    /// `ObjectTemplate::set_internal_field_count`, and an arbitrary
+    /// `T` to tag with the Object.
+    pub fn new_rc(
+        scope: &mut impl InIsolate,
+        mut object: Local<Object>,
+        wrap: Rc<T>,
+    ) -> ObjectWrap<T> {
         assert_eq!(object.internal_field_count(), 2);
-        let wrap = Rc::into_raw(Rc::new(wrap));
+        let wrap = Rc::into_raw(wrap);
         unsafe { object.set_internal_field_ptr(0, type_id_to_u64::<T>() as usize as *mut c_void) };
         unsafe { object.set_internal_field_ptr(1, wrap as *mut T) };
         let mut global = Global::new_from(scope, object);

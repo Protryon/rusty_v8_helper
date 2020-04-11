@@ -1,5 +1,6 @@
 use crate::ObjectWrap;
 use rusty_v8 as v8;
+use std::rc::Rc;
 
 pub fn make_str<'sc>(scope: &mut impl v8::ToLocal<'sc>, value: &str) -> v8::Local<'sc, v8::Value> {
     v8::String::new(scope, value).unwrap().into()
@@ -38,4 +39,15 @@ pub fn make_object_wrap<'sc, T>(
     obj.set_internal_field_count(2);
     let obj = obj.new_instance(scope, context).unwrap();
     ObjectWrap::new(scope, obj, wrap)
+}
+
+pub fn make_object_wrap_rc<'sc, T>(
+    scope: &mut impl v8::ToLocal<'sc>,
+    context: v8::Local<v8::Context>,
+    wrap: Rc<T>,
+) -> ObjectWrap<T> {
+    let mut obj = v8::ObjectTemplate::new(scope);
+    obj.set_internal_field_count(2);
+    let obj = obj.new_instance(scope, context).unwrap();
+    ObjectWrap::new_rc(scope, obj, wrap)
 }

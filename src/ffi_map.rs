@@ -1,9 +1,13 @@
 use crate::util::*;
+use crate::ObjectWrap;
 use rusty_v8 as v8;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{Map, Value};
-use std::convert::{TryInto};
+use std::any::Any;
+use std::convert::TryInto;
 use std::fmt::Debug;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub trait FFICompat<'sc, 'c>
 where
@@ -23,9 +27,7 @@ where
     ) -> Result<v8::Local<'sc, v8::Value>, Self::E>;
 }
 
-impl<'sc, 'c>
-    FFICompat<'sc, 'c> for v8::Local<'sc, v8::Value>
-{
+impl<'sc, 'c> FFICompat<'sc, 'c> for v8::Local<'sc, v8::Value> {
     type E = String;
     fn from_value(
         value: v8::Local<'sc, v8::Value>,
@@ -642,6 +644,75 @@ impl<
     }
 }
 
+pub struct FFIWrap<T: Any + 'static> {
+    inner: Rc<T>,
+}
+
+impl<T: Any + 'static> FFIWrap<T> {
+    pub fn new(item: T) -> FFIWrap<T> {
+        FFIWrap {
+            inner: Rc::new(item),
+        }
+    }
+
+    pub fn new_rc(item: Rc<T>) -> FFIWrap<T> {
+        FFIWrap { inner: item }
+    }
+}
+
+impl<T: Any + 'static> From<T> for FFIWrap<T> {
+    fn from(item: T) -> FFIWrap<T> {
+        FFIWrap::new(item)
+    }
+}
+
+impl<T: Any + 'static> From<Rc<T>> for FFIWrap<T> {
+    fn from(item: Rc<T>) -> FFIWrap<T> {
+        FFIWrap::new_rc(item)
+    }
+}
+
+impl<T: Any + 'static> Into<Rc<T>> for FFIWrap<T> {
+    fn into(self) -> Rc<T> {
+        self.inner
+    }
+}
+
+impl<'sc, 'c, T: Any + 'static> FFICompat<'sc, 'c> for FFIWrap<T> {
+    type E = String;
+
+    fn from_value(
+        value: v8::Local<'sc, v8::Value>,
+        _scope: &mut impl v8::ToLocal<'sc>,
+        _context: v8::Local<'c, v8::Context>,
+    ) -> Result<Self, String> {
+        Ok(FFIWrap {
+            inner: ObjectWrap::from_object(value.try_into().map_err(|e| format!("{:?}", e))?)
+                .ok_or_else(|| {
+                    format!("invalif ffi object (use after gc collect or invalid reference)")
+                })?,
+        })
+    }
+
+    fn to_value(
+        self,
+        scope: &mut impl v8::ToLocal<'sc>,
+        context: v8::Local<'c, v8::Context>,
+    ) -> Result<v8::Local<'sc, v8::Value>, String> {
+        let mut wrapped = make_object_wrap_rc(scope, context, self.inner);
+        wrapped.make_weak();
+        Ok(wrapped.get(scope).unwrap().into())
+    }
+}
+
+impl<T> Deref for FFIWrap<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.inner.deref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -804,7 +875,11 @@ mod tests {
     }
 
     #[v8_ffi(scoped)]
-    fn test_ffi_scoped<'sc, 'c>(scope: &mut impl v8::ToLocal<'sc>, _context: v8::Local<'c, v8::Context>, arg: String) -> v8::Local<'sc, v8::Value> {
+    fn test_ffi_scoped<'sc, 'c>(
+        scope: &mut impl v8::ToLocal<'sc>,
+        _context: v8::Local<'c, v8::Context>,
+        arg: String,
+    ) -> v8::Local<'sc, v8::Value> {
         if arg == "test1" {
             TEST_RESPONSE.store(20, Ordering::SeqCst);
             make_str(scope, "test2")
@@ -814,6 +889,35 @@ mod tests {
         } else {
             v8::undefined(scope).into()
         }
+    }
+
+    #[v8_ffi]
+    fn test_ffi_explicit_wrap(arg: FFIWrap<String>) -> FFIWrap<Option<u32>> {
+        if *arg == "test" {
+            TEST_RESPONSE.store(22, Ordering::SeqCst);
+            FFIWrap::from(None)
+        } else {
+            TEST_RESPONSE.store(23, Ordering::SeqCst);
+            arg.parse().ok().into()
+        }
+    }
+
+    #[v8_ffi]
+    fn check_ffi_explicit_wrap(arg: FFIWrap<Option<u32>>) {
+        match *arg {
+            Some(i) if i == 7 => {
+                TEST_RESPONSE.store(24, Ordering::SeqCst);
+            }
+            None => {
+                TEST_RESPONSE.store(25, Ordering::SeqCst);
+            }
+            _ => panic!(),
+        }
+    }
+
+    #[v8_ffi]
+    fn ffi_wrap_make_str(string: String) -> FFIWrap<String> {
+        string.into()
     }
 
     #[test]
@@ -1067,5 +1171,45 @@ mod tests {
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 20);
         run_script(scope, context, "test_ffi_scoped(test_ffi_scoped('test1'))");
         assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 21);
+
+        global.set(
+            context,
+            make_str(scope, "test_ffi_explicit_wrap"),
+            load_v8_ffi!(test_ffi_explicit_wrap, scope, context),
+        );
+        global.set(
+            context,
+            make_str(scope, "check_ffi_explicit_wrap"),
+            load_v8_ffi!(check_ffi_explicit_wrap, scope, context),
+        );
+        global.set(
+            context,
+            make_str(scope, "ffi_wrap_make_str"),
+            load_v8_ffi!(ffi_wrap_make_str, scope, context),
+        );
+        run_script(
+            scope,
+            context,
+            "test_ffi_explicit_wrap(ffi_wrap_make_str('test'))",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 22);
+        run_script(
+            scope,
+            context,
+            "test_ffi_explicit_wrap(ffi_wrap_make_str('fgsdfg'))",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 23);
+        run_script(
+            scope,
+            context,
+            "check_ffi_explicit_wrap(test_ffi_explicit_wrap(ffi_wrap_make_str('7')))",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 24);
+        run_script(
+            scope,
+            context,
+            "check_ffi_explicit_wrap(test_ffi_explicit_wrap(ffi_wrap_make_str('test')))",
+        );
+        assert_eq!(TEST_RESPONSE.load(Ordering::SeqCst), 25);
     }
 }
