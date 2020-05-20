@@ -379,6 +379,8 @@ fn serde_to_js_value<'sc, 'c>(
 /// marker trait for json mapping
 pub trait FFIObject {}
 
+impl FFIObject for Value {}
+
 impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject> FFICompat<'sc, 'c> for T {
     type E = String;
 
