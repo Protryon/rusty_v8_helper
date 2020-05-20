@@ -233,7 +233,7 @@ impl<'sc, 'c, T: FFICompat<'sc, 'c>> FFICompat<'sc, 'c> for Option<T> {
     }
 }
 
-impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c> + 'static> FFICompat<'sc, 'c> for Result<T, E> {
+impl<'sc, 'c, E: Debug, T: FFICompat<'sc, 'c>> FFICompat<'sc, 'c> for Result<T, E> {
     type E = String;
 
     fn from_value(
@@ -379,7 +379,7 @@ fn serde_to_js_value<'sc, 'c>(
 /// marker trait for json mapping
 pub trait FFIObject {}
 
-impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject + 'static> FFICompat<'sc, 'c> for T {
+impl<'sc, 'c, T: Serialize + DeserializeOwned + FFIObject> FFICompat<'sc, 'c> for T {
     type E = String;
 
     fn from_value(
